@@ -1,0 +1,7 @@
+version: '3.5'
+
+services:
+  {{ (ds "config").DNS_PREFIX | strings.ReplaceAll "." "-" }}-{{ (ds "config").DNS_SUFFIX | strings.ReplaceAll "." "-" }}:
+    image: ${DOCKER_REGISTRY}{{ (ds "config").DNS_PREFIX }}.{{ (ds "config").DNS_SUFFIX }}:${BRANCH:-develop}.${VERSION:-local}
+    build:
+      target: runtime

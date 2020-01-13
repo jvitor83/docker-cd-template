@@ -1,0 +1,12 @@
+node_modules
+.vscode
+.vs
+.git
+npm-debug.log
+cd-BUILD.sh
+cd-RELEASE.sh
+docker-extract
+TestResults
+bin/
+obj/
+target/
