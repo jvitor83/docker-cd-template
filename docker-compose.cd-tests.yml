@@ -3,7 +3,7 @@ version: '3.5'
 services:
   {{ (ds "config").DNS_PREFIX | strings.ReplaceAll "." "-" }}-{{ (ds "config").DNS_SUFFIX | strings.ReplaceAll "." "-" }}:
     image: ${DOCKER_REGISTRY}{{ (ds "config").DNS_PREFIX }}.{{ (ds "config").DNS_SUFFIX }}:${BRANCH:-develop}.${VERSION:-local}-tests
-    container_name: {{ (ds "config").DNS_PREFIX }}-tests.{{ (ds "config").DNS_SUFFIX }}
+    container_name: tests
     build:
       target: tests
     environment:
@@ -13,13 +13,3 @@ services:
       SONARQUBE_PROJECT: {{ (ds "config").DNS_PREFIX }}.{{ (ds "config").DNS_SUFFIX }}
       SONARQUBE_PROJECT_VERSION: ${BRANCH:-develop}.${VERSION:-local}
     env_file: env-tests.env
-    volumes:
-      - test-result:/TestResults
-
-volumes:
-  test-result:
-    name: ${DOCKERCOMPOSE_TESTS_VOLUME_NAME:-app-test-results}
-
-networks:
-  default:
-    name: ns-{{ (ds "config").SOFTWARE_NAME }}-${BRANCH}-${VERSION}-tests    

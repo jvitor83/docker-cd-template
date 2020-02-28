@@ -26,9 +26,6 @@ echo "-----------------------------------------------------------------------"
 
 #Variaveis locais, utilizado para copiar os arquivos do container
 ARTIFACT_STAGING_DIRECTORY="./docker-extract"
-DOCKERCOMPOSE_TESTS_VOLUME_NAME="app-test-results"
-DOCKERCOMPOSE_TESTS_CONTAINER_NAME="container-testresults"
-DOCKERCOMPOSE_TESTS_TEST_RESULT_PATH="/TestResults"
 
 #Build
 export RUN_PROJECT=${RUN_PROJECT:-false}
@@ -37,14 +34,18 @@ export RUN_SONARQUBE=${RUN_SONARQUBE:-true}
 export SONARQUBE_URL=${SONARQUBE_URL:-http://172.17.0.1:9000}
 export SONARQUBE_LOGIN=${SONARQUBE_LOGIN}
 
+export DOCKER_PUSH_IMAGES=${DOCKER_PUSH_IMAGES:-false}
 
 echo ""
 echo "-----------------------------------------------------------------------"
 echo "Run docker-compose.cd-debug.yml"
 docker-compose -f "docker-compose.yml" -f "docker-compose.cd-debug.yml" build
-#docker-compose -f "docker-compose.yml" -f "docker-compose.cd-debug.yml" push
 if [ $RUN_PROJECT == 'true' ]; then
     docker-compose -f "docker-compose.yml" -f "docker-compose.cd-debug.yml" up
+    exit 1
+fi
+if [ $DOCKER_PUSH_IMAGES == 'true' ]; then
+    docker-compose -f "docker-compose.yml" -f "docker-compose.cd-debug.yml" push
 fi
 echo "-----------------------------------------------------------------------"
 
@@ -52,13 +53,13 @@ echo "-----------------------------------------------------------------------"
 echo "-----------------------------------------------------------------------"
 echo "Run docker-compose.cd-tests.yml"
 docker-compose -f "docker-compose.yml" -f "docker-compose.cd-tests.yml" build
-#docker-compose -f "docker-compose.yml" -f "docker-compose.cd-tests.yml" push
 if [ $RUN_TEST == 'true' ]; then
     docker-compose -f "docker-compose.yml" -f "docker-compose.cd-tests.yml" up --abort-on-container-exit
-    echo "Extraindo os resultados dos testes"
-    docker create --name $DOCKERCOMPOSE_TESTS_CONTAINER_NAME -v $DOCKERCOMPOSE_TESTS_VOLUME_NAME:$DOCKERCOMPOSE_TESTS_TEST_RESULT_PATH busybox
-    docker cp $DOCKERCOMPOSE_TESTS_CONTAINER_NAME:$DOCKERCOMPOSE_TESTS_TEST_RESULT_PATH $ARTIFACT_STAGING_DIRECTORY/TestResults
-    docker rm $DOCKERCOMPOSE_TESTS_CONTAINER_NAME
+    echo "Extraindo os artefatos de teste"
+    docker cp tests:/TestResults ${ARTIFACT_STAGING_DIRECTORY}/TestResults
+fi
+if [ $DOCKER_PUSH_IMAGES == 'true' ]; then
+    docker-compose -f "docker-compose.yml" -f "docker-compose.cd-tests.yml" push
 fi
 echo "-----------------------------------------------------------------------"
 
@@ -66,15 +67,9 @@ echo "-----------------------------------------------------------------------"
 echo ""
 echo "-----------------------------------------------------------------------"
 echo "Run docker-compose.cd-build.yml"
-export DOCKERCOMPOSE_PUBLISH_VOLUME_NAME="app-extract-publish"
-export DOCKERCOMPOSE_PUBLISH_CONTAINER_NAME="container-publish"
-export DOCKERCOMPOSE_PUBLISH_APP_PATH="/var/release/"
-docker-compose -f "docker-compose.yml" -f "docker-compose.cd-build.yml" build
-#docker-compose -f "docker-compose.yml" -f "docker-compose.cd-build.yml" push
-echo "Extraindo o artefatos"
-docker create --name $DOCKERCOMPOSE_PUBLISH_CONTAINER_NAME -v $DOCKERCOMPOSE_PUBLISH_VOLUME_NAME:$DOCKERCOMPOSE_PUBLISH_APP_PATH busybox
-docker cp $DOCKERCOMPOSE_PUBLISH_CONTAINER_NAME:$DOCKERCOMPOSE_PUBLISH_APP_PATH $ARTIFACT_STAGING_DIRECTORY/artefatos
-docker rm $DOCKERCOMPOSE_PUBLISH_CONTAINER_NAME
+docker-compose -f "docker-compose.yml" -f "docker-compose.cd-build.yml" up --build --force-recreate --no-start
+echo "Extraindo os artefatos de build"
+docker cp build:/app ${ARTIFACT_STAGING_DIRECTORY}/BuildArtifacts
 echo "-----------------------------------------------------------------------"
 
 
@@ -82,7 +77,9 @@ echo ""
 echo "-----------------------------------------------------------------------"
 echo "Run docker-compose.cd-runtime.yml"
 docker-compose -f "docker-compose.yml" -f "docker-compose.cd-runtime.yml" build
-#docker-compose -f "docker-compose.yml" -f "docker-compose.cd-runtime.yml" push
+if [ $DOCKER_PUSH_IMAGES == 'true' ]; then
+    docker-compose -f "docker-compose.yml" -f "docker-compose.cd-runtime.yml" push
+fi
 echo "-----------------------------------------------------------------------"
 
 
@@ -90,5 +87,7 @@ echo ""
 echo "-----------------------------------------------------------------------"
 echo "Run docker-compose.cd-deploy.yml"
 docker-compose -f "docker-compose.yml" -f "docker-compose.cd-deploy.yml" build
-#docker-compose -f "docker-compose.yml" -f "docker-compose.cd-deploy.yml" push
+if [ $DOCKER_PUSH_IMAGES == 'true' ]; then
+    docker-compose -f "docker-compose.yml" -f "docker-compose.cd-deploy.yml" push
+fi
 echo "-----------------------------------------------------------------------"
